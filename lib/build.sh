@@ -15,24 +15,24 @@ load_previous_npm_node_versions() {
   if [ -f $cache_dir/npm-version ]; then
     old_npm=$(<$cache_dir/npm-version)
   fi
-  if [ -f $cache_dir/npm-version ]; then
+  if [ -f $cache_dir/node-version ]; then
     old_node=$(<$cache_dir/node-version)
   fi
 }
 
 download_node() {
   local platform=linux-x64
+  local node_filename="node-v$node_version-$platform.tar.gz"
+  cached_node="$cache_dir/$node_filename"
 
   if [ ! -f ${cached_node} ]; then
-    echo "Resolving node version $node_version..."
-    if ! read number url < <(curl --silent --get --retry 5 --retry-max-time 15 --data-urlencode "range=$node_version" "https://nodebin.herokai.com/v1/node/$platform/latest.txt"); then
-      fail_bin_install node $node_version;
-    fi
+    echo "Downloading Node.js $node_version..."
+    local download_url="https://nodejs.org/dist/v$node_version/$node_filename"
 
-    echo "Downloading and installing node $number..."
-    local code=$(curl "$url" -L --silent --fail --retry 5 --retry-max-time 15 -o ${cached_node} --write-out "%{http_code}")
+    echo "Downloading and installing node $node_version..."
+    local code=$(curl "$download_url" -L --silent --fail --retry 5 --retry-max-time 15 -o ${cached_node} --write-out "%{http_code}")
     if [ "$code" != "200" ]; then
-      echo "Unable to download node: $code" && false
+      echo "Unable to download node: $code ($download_url)" && false
     fi
   else
     info "Using cached node ${node_version}..."
@@ -40,13 +40,11 @@ download_node() {
 }
 
 cleanup_old_node() {
-  local old_node_dir=$cache_dir/node-$old_node-linux-x64.tar.gz
+  local old_node_tarball="node-$old_node-linux-x64.tar.gz"
+  local old_node_dir=$cache_dir/$old_node_tarball
 
-  # Note that $old_node will have a format of "v5.5.0" while $node_version
-  # has the format "5.6.0"
-
-  if [ $clean_cache = true ] || [ $old_node != v$node_version ] && [ -f $old_node_dir ]; then
-    info "Cleaning up old Node $old_node"
+  if [ $clean_cache = true ] || ([ $old_node != v$node_version ] && [ -f $old_node_dir ]); then
+    info "Cleaning up old Node $old_node ($old_node_tarball)"
     rm $old_node_dir
 
     local bower_components_dir=$cache_dir/bower_components
